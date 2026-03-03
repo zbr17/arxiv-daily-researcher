@@ -3,11 +3,15 @@
 
 支持的通知渠道：
 - Email: SMTP 邮件通知
-- 企业微信: Webhook 机器人
+- 企业微信: Webhook 机器人（Markdown 模板）
 - 钉钉: Webhook 机器人（支持签名验证）
 - Telegram: Bot API
 - Slack: Incoming Webhook
 - 通用 Webhook: 自定义 URL
+
+支持的通知类型：
+- 运行成功/失败通知（基于可自定义模板）
+- 错误告警通知（MinerU、LLM、网络、通用错误）
 """
 
 import json
@@ -31,6 +35,52 @@ from typing import List, Dict, Optional, Any
 import requests
 
 logger = logging.getLogger(__name__)
+
+# 模板目录
+TEMPLATE_DIR = Path(__file__).resolve().parent.parent.parent / "configs" / "notification_templates"
+
+
+def _load_template(name: str) -> Optional[str]:
+    """
+    加载通知模板文件。
+
+    模板文件存放于 configs/notification_templates/ 目录，
+    以 '# ' 开头（单个 #）的行视为注释，不会出现在最终消息中。
+    '## ' 及更多 # 开头的行保留为 Markdown 标题。
+
+    参数:
+        name: 模板文件名（不含扩展名），如 'success'、'error_mineru'
+
+    返回:
+        去除注释后的模板内容，文件不存在时返回 None
+    """
+    path = TEMPLATE_DIR / f"{name}.md"
+    if not path.exists():
+        logger.debug(f"模板文件不存在: {path}")
+        return None
+    try:
+        lines = path.read_text(encoding="utf-8").splitlines()
+        content_lines = []
+        for line in lines:
+            stripped = line.lstrip()
+            # 单 # 开头且不是 ## 的行视为注释
+            if stripped.startswith("# ") and not stripped.startswith("## "):
+                continue
+            if stripped == "#":
+                continue
+            content_lines.append(line)
+        return "\n".join(content_lines).strip()
+    except Exception as e:
+        logger.warning(f"加载模板失败 ({path}): {e}")
+        return None
+
+
+def _render_template(template: str, **kwargs) -> str:
+    """渲染模板，将 {变量名} 替换为实际值。未提供的变量保留原样。"""
+    result = template
+    for key, value in kwargs.items():
+        result = result.replace(f"{{{key}}}", str(value))
+    return result
 
 
 @dataclass
@@ -132,8 +182,8 @@ class WebhookNotifier(BaseNotifier):
         return True
 
     def _format_wechat_work(self, subject: str, body: str):
-        """企业微信机器人"""
-        content = f"## {subject}\n\n{body}"
+        """企业微信机器人 — body 已含完整 Markdown 模板内容"""
+        content = body
         # 企业微信 markdown 限制 4096 字节
         if len(content.encode("utf-8")) > 4000:
             content = content[:1300] + "\n\n...(内容已截断)"
@@ -162,7 +212,7 @@ class WebhookNotifier(BaseNotifier):
             "msgtype": "markdown",
             "markdown": {
                 "title": subject,
-                "text": f"## {subject}\n\n{body}"
+                "text": body
             }
         }
         return url, payload, {"Content-Type": "application/json"}
@@ -263,8 +313,12 @@ class NotifierAgent:
                 WebhookNotifier("generic", s.GENERIC_WEBHOOK_URL))
             logger.info("已启用通用 Webhook 通知")
 
+    # ------------------------------------------------------------------
+    # 运行结果通知
+    # ------------------------------------------------------------------
+
     def notify(self, result: RunResult) -> None:
-        """格式化并发送通知到所有已配置的渠道"""
+        """格式化并发送运行结果通知到所有已配置的渠道"""
         if not self.notifiers:
             logger.debug("未配置任何通知渠道，跳过")
             return
@@ -284,11 +338,114 @@ class NotifierAgent:
             except Exception as e:
                 logger.warning(f"通知发送失败 ({type(notifier).__name__}): {e}")
 
+    # ------------------------------------------------------------------
+    # 错误告警通知
+    # ------------------------------------------------------------------
+
+    def notify_error(self, template_name: str, **kwargs) -> None:
+        """
+        发送错误告警通知。
+
+        使用 configs/notification_templates/ 下的错误模板文件渲染消息并发送。
+        仅在 on_failure 为 True 时发送。模板或渠道不存在时静默跳过。
+
+        参数:
+            template_name: 模板名称（如 'error_mineru'、'error_llm'、'error_network'、'error_generic'）
+            **kwargs: 模板变量
+        """
+        if not self.notifiers:
+            return
+        if not self.settings.NOTIFY_ON_FAILURE:
+            return
+
+        if "timestamp" not in kwargs:
+            kwargs["timestamp"] = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+
+        template = _load_template(template_name)
+        if template:
+            body = _render_template(template, **kwargs)
+        else:
+            body = f"## ArXiv Daily Researcher\n\n"
+            body += f"<font color=\"warning\">**错误告警**</font> | {kwargs.get('timestamp', '')}\n\n"
+            for k, v in kwargs.items():
+                if k != "timestamp":
+                    body += f"> {k}: {v}\n"
+
+        subject = f"ArXiv Daily Researcher - ERROR ({kwargs.get('timestamp', '')})"
+
+        for notifier in self.notifiers:
+            try:
+                notifier.send(subject, body)
+            except Exception as e:
+                logger.warning(f"错误告警发送失败 ({type(notifier).__name__}): {e}")
+
+    # ------------------------------------------------------------------
+    # 格式化辅助方法
+    # ------------------------------------------------------------------
+
     def _format_subject(self, result: RunResult) -> str:
         status = "SUCCESS" if result.success else "FAILED"
         return f"ArXiv Daily Researcher - {status} ({result.run_timestamp})"
 
     def _format_body(self, result: RunResult) -> str:
+        """使用模板格式化运行结果通知正文，模板不存在时降级为纯文本"""
+        template_name = "success" if result.success else "failure"
+        template = _load_template(template_name)
+
+        # 构建各数据源统计文本
+        source_lines = []
+        for source in sorted(result.papers_by_source.keys()):
+            fetched = result.papers_by_source.get(source, 0)
+            qualified = result.qualified_by_source.get(source, 0)
+            analyzed = result.analyzed_by_source.get(source, 0)
+            source_lines.append(
+                f"> `{source.upper()}` 抓取 **{fetched}** | 及格 **{qualified}** | 分析 **{analyzed}**"
+            )
+        source_summary = "\n".join(source_lines)
+
+        # 构建报告路径文本
+        report_lines = []
+        if result.report_paths:
+            report_lines.append("**报告路径**")
+            for source, path in result.report_paths.items():
+                report_lines.append(f"> `{source}` {path}")
+        report_list = "\n".join(report_lines)
+
+        # 构建 Top-N 论文文本
+        top_lines = []
+        if result.top_papers:
+            top_lines.append(f"**Top {len(result.top_papers)} 论文**")
+            for i, p in enumerate(result.top_papers, 1):
+                title = p.get('title', '')[:60]
+                score = p.get('score', 0)
+                src = p.get('source', '').upper()
+                tldr = p.get('tldr', '')[:80]
+                url = p.get('url', '')
+                top_lines.append(f"> **{i}.** `{src}` {title}")
+                top_lines.append(f"> <font color=\"comment\">Score: {score:.1f} | {tldr}</font>")
+                if url:
+                    top_lines.append(f"> [查看原文]({url})")
+        top_papers = "\n".join(top_lines)
+
+        if template:
+            return _render_template(
+                template,
+                status="SUCCESS" if result.success else "FAILED",
+                timestamp=result.run_timestamp,
+                total_fetched=result.total_papers_fetched,
+                total_qualified=result.total_qualified,
+                total_analyzed=result.total_analyzed,
+                source_summary=source_summary,
+                report_list=report_list,
+                top_papers=top_papers,
+                error_message=result.error_message or "无",
+            )
+
+        # 模板不存在时降级为纯文本
+        return self._format_body_fallback(result)
+
+    def _format_body_fallback(self, result: RunResult) -> str:
+        """模板不存在时的兜底纯文本格式（保持向后兼容）"""
         status_icon = "OK" if result.success else "ERROR"
         lines = [
             f"Status: {status_icon}",

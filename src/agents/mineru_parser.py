@@ -82,11 +82,42 @@ class MineruParser:
         """
         return self.is_configured() and self._available
 
-    def _mark_unavailable(self, reason: str):
-        """标记 MinerU 在本次运行中不可用。"""
+    def _mark_unavailable(self, reason: str, error_code: str = ""):
+        """标记 MinerU 在本次运行中不可用，并发送错误告警通知。"""
         self._available = False
         logger.warning(f"MinerU 已标记为不可用（本次运行），原因: {reason}")
         logger.warning("后续论文将自动使用 PyMuPDF 本地解析")
+        self._send_error_notification(reason, error_code)
+
+    def _send_error_notification(self, reason: str, error_code: str = ""):
+        """通过通知系统发送 MinerU 错误告警。"""
+        try:
+            if not settings.ENABLE_NOTIFICATIONS:
+                return
+            from agents.notifier import NotifierAgent
+            notifier = NotifierAgent()
+
+            suggestion_map = {
+                "A0211": "请到 https://mineru.net/apiManage/apiKey 重新申请 Token 并更新 .env",
+                "A0202": "请检查 .env 中 MINERU_API_KEY 是否填写正确",
+                "-60018": "每日额度已耗尽，明日自动重置；或临时切换 pdf_parser.mode 为 pymupdf",
+                "-60019": "HTML 解析额度不足，请联系 MinerU 客服或升级套餐",
+                "-60005": "PDF 文件超过 200MB 限制，建议使用 pymupdf 本地解析",
+                "-60006": "PDF 页数超过 600 页限制，建议使用 pymupdf 本地解析",
+            }
+            suggestion = suggestion_map.get(
+                error_code,
+                "请检查网络连接和 MinerU API 配置，或切换 pdf_parser.mode 为 pymupdf"
+            )
+
+            notifier.notify_error(
+                "error_mineru",
+                error_code=error_code or "N/A",
+                error_detail=reason,
+                suggestion=suggestion,
+            )
+        except Exception as e:
+            logger.debug(f"MinerU 错误告警发送失败: {e}")
 
     def _submit_task(self, pdf_url: str) -> Optional[str]:
         """
@@ -111,7 +142,7 @@ class MineruParser:
 
             # HTTP 层面的错误
             if resp.status_code == 401 or resp.status_code == 403:
-                self._mark_unavailable("API 认证失败，Token 可能错误或已过期")
+                self._mark_unavailable("API 认证失败，Token 可能错误或已过期", "A0202")
                 return None
 
             result = resp.json()
@@ -127,7 +158,7 @@ class MineruParser:
                 msg, should_degrade = MINERU_ERROR_CODES[code]
                 logger.error(f"MinerU 任务提交失败: {msg} (错误码: {code})")
                 if should_degrade:
-                    self._mark_unavailable(msg)
+                    self._mark_unavailable(msg, code)
                 return None
 
             # 未知错误码
@@ -140,7 +171,7 @@ class MineruParser:
             return None
         except requests.exceptions.ConnectionError:
             logger.error("MinerU API 连接失败，请检查网络")
-            self._mark_unavailable("网络连接失败")
+            self._mark_unavailable("网络连接失败", "NETWORK")
             return None
         except Exception as e:
             logger.error(f"MinerU 任务提交异常: {e}")
@@ -176,7 +207,7 @@ class MineruParser:
                         msg, should_degrade = MINERU_ERROR_CODES[code]
                         logger.error(f"MinerU 任务查询失败: {msg}")
                         if should_degrade:
-                            self._mark_unavailable(msg)
+                            self._mark_unavailable(msg, code)
                     return None
 
                 data = result.get("data", {})

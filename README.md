@@ -4,7 +4,7 @@
 
 **基于 LLM 的智能学术论文监控、筛选与分析系统**
 
-[![License: CC BY-NC-SA 4.0](https://img.shields.io/badge/License-CC%20BY--NC--SA%204.0-lightgrey.svg)](https://creativecommons.org/licenses/by-nc-sa/4.0/)
+[![License: AGPL v3](https://img.shields.io/badge/License-AGPL%20v3-blue.svg)](https://www.gnu.org/licenses/agpl-3.0)
 [![Python 3.10+](https://img.shields.io/badge/Python-3.10%2B-3776AB?logo=python&logoColor=white)](https://www.python.org/downloads/)
 [![Docker](https://img.shields.io/badge/Docker-Ready-2496ED?logo=docker&logoColor=white)](https://www.docker.com/)
 [![GitHub Actions](https://img.shields.io/badge/GitHub_Actions-Supported-2088FF?logo=github-actions&logoColor=white)](https://github.com/features/actions)
@@ -84,7 +84,7 @@
 <td width="50%">
 
 ### 🔔 多渠道通知推送
-运行完成后自动发送含 Top-N 高分论文的结果通知，支持 **邮件**、**企业微信**、**钉钉**、**Telegram**、**Slack** 和自定义 Webhook，成功/失败分别可配。
+运行完成后自动发送含 Top-N 高分论文的结果通知，支持 **邮件**、**企业微信**、**钉钉**、**Telegram**、**Slack** 和自定义 Webhook，成功/失败分别可配。通知使用**可自定义 Markdown 模板**，错误（MinerU 过期、LLM 异常等）实时告警。
 
 </td>
 </tr>
@@ -361,6 +361,22 @@ SLACK_WEBHOOK_URL=https://hooks.slack.com/services/xxx
 > [!TIP]
 > 只需在 `.env` 中填写哪些渠道的密钥，系统便自动启用对应渠道，未配置的渠道静默跳过。
 > 通知内容包含运行摘要（总数/通过数/报告路径）及 Top-N 高分论文的标题、得分、TLDR 和原文链接。
+> 通知使用 Markdown 模板渲染，企业微信等平台支持富文本展示。
+
+### 第三步：自定义通知模板（可选）
+
+通知消息通过 `configs/notification_templates/` 目录下的 Markdown 模板渲染，开箱即用，也可自行修改：
+
+| 模板文件            | 用途                     | 触发条件                           |
+| :------------------ | :----------------------- | :--------------------------------- |
+| `success.md`        | 运行成功通知             | 每次成功运行后                     |
+| `failure.md`        | 运行失败通知             | 主流程异常退出                     |
+| `error_mineru.md`   | MinerU API 错误告警      | Token 过期、额度耗尽、网络异常     |
+| `error_llm.md`      | LLM API 错误告警         | API Key 失效、余额不足等           |
+| `error_network.md`  | 外部服务连接错误告警     | ArXiv/OpenAlex 等服务连接失败      |
+| `error_generic.md`  | 通用错误告警             | 其他未分类的运行时错误             |
+
+模板中以 `# ` 开头的行为注释（不会发送），使用 `{变量名}` 引用动态数据。每个模板文件顶部有完整的可用变量列表和说明。
 
 ---
 
@@ -540,6 +556,13 @@ arxiv-daily-researcher/
 │
 ├── ⚙️  configs/
 │   ├── config.json                 # 项目主配置（JSON5，可写注释）
+│   ├── 📂 notification_templates/  # 通知消息模板（可自定义）
+│   │   ├── success.md              # 运行成功通知模板
+│   │   ├── failure.md              # 运行失败通知模板
+│   │   ├── error_mineru.md         # MinerU 错误告警模板
+│   │   ├── error_llm.md            # LLM API 错误告警模板
+│   │   ├── error_network.md        # 网络错误告警模板
+│   │   └── error_generic.md        # 通用错误告警模板
 │   └── 📂 report_templates/
 │       ├── basic_report_template.json
 │       ├── deep_analysis_template.json
@@ -987,18 +1010,36 @@ AI 标准化偶尔可能出现过度归并。处理方式：
 
 ## 📜 许可证
 
-本项目采用 [CC BY-NC-SA 4.0](https://creativecommons.org/licenses/by-nc-sa/4.0/) 许可证。
+本项目采用 [AGPL-3.0](https://www.gnu.org/licenses/agpl-3.0.html) 许可证。
 
-| 权限   | 说明                     |
-| :----- | :----------------------- |
-| ✅ 使用 | 可自由使用、修改、分享   |
-| ✅ 署名 | 需注明原作者             |
-| ❌ 商用 | 禁止商业使用             |
-| 🔄 传播 | 衍生作品需使用相同许可证 |
+| 权限       | 说明                                       |
+| :--------- | :----------------------------------------- |
+| ✅ 使用     | 可自由使用、修改、分发                     |
+| ✅ 商用     | 允许商业使用                               |
+| 📋 源码公开 | 修改后的版本须公开源代码并使用相同许可证   |
+| 🌐 网络使用 | 通过网络提供服务时也须公开源代码           |
+| 📝 声明     | 需保留原始版权声明和许可证                 |
 
 ---
 
 ## 📝 更新日志
+
+### ✅ v2.1 — 2026-03-03
+
+**📋 许可证变更（1 项）**
+
+1. **许可证从 CC BY-NC-SA 4.0 变更为 AGPL-3.0** — 更适合开源软件项目的许可协议，允许商业使用，要求衍生作品公开源代码
+
+**✨ 新功能（2 项）**
+
+2. **通知消息 Markdown 模板系统** — 通知消息改用可自定义的 Markdown 模板渲染，适配企业微信等支持 Markdown 的平台。模板文件存放于 `configs/notification_templates/`，包含运行成功（`success.md`）、运行失败（`failure.md`）及多种错误告警模板，用户可直接修改模板自定义通知样式和内容
+3. **运行时错误实时告警通知** — 新增错误告警通知机制，当 MinerU API Token 过期、额度耗尽、LLM API 异常、网络连接失败等错误发生时，立即通过配置的通知渠道推送告警，包含错误详情和处理建议（模板文件：`error_mineru.md`、`error_llm.md`、`error_network.md`、`error_generic.md`）
+
+**🗑️ 清理（1 项）**
+
+4. **移除临时文档** — 删除不再需要的 `mineruapi.md` 文件
+
+---
 
 ### ✅ v2.0 — 2026-03-03
 

@@ -3,8 +3,8 @@
   // Search Configuration
   // ==================================================
   "search_settings": {
-    "search_days": 7,
-    "max_results": 100,
+    "search_days": 1,
+    "max_results": 1000,
     "max_results_per_source": {}
   },
 
@@ -14,7 +14,23 @@
   "data_sources": {
     "enabled": [
       "arxiv",
-      "prl"
+      "prl",
+      "pra",
+      "prb",
+      "prc",
+      "prd",
+      "pre",
+      "prx",
+      "prxq",
+      "rmp",
+      "nature",
+      "nature_physics",
+      "nature_communications",
+      "science",
+      "science_advances",
+      "npj_quantum_information",
+      "quantum",
+      "new_journal_of_physics"
     ],
     "journals": [],
     "reports_by_source": true
@@ -25,7 +41,14 @@
   // ==================================================
   "target_domains": {
     "domains": [
-      "quant-ph"
+      "cs.AI",
+      "cs.CL",
+      "cs.CV",
+      "cs.LG",
+      "cs.NE",
+      "cs.RO",
+      "cs.SE",
+      "cs.DS"
     ]
   },
 
@@ -35,7 +58,14 @@
   "keywords": {
     "primary_keywords": {
       "weight": 1.0,
-      "keywords": []
+      "keywords": [
+        "deep learning theory",
+        "explainable AI",
+        "neural network theory",
+        "agent",
+        "efficiecy",
+        "safety"
+      ]
     },
     "enable_reference_extraction": true,
     "reference_keywords_config": {
@@ -56,7 +86,7 @@
         }
       }
     },
-    "research_context": ""
+    "research_context": "My primary research interests lie at the intersection of Computer Vision and Deep Learning Theory. Currently, I am focused on the following pillars:\n(1) Explainable AI (XAI):\na) Black-box XAI: Axiomatic interpretation & Neural visualization.\nb) White-box XAI: Concept alignment & White-box architecture design.\n(2) Neural Network Theory:\na) Optimization: Efficient optimization strategies & Convergence analysis.\nb) Inductive Bias: Frequency bias exploration & Piece-wise linear modeling.\n(3) Large Multimodal Models:\na) Visual tokenizers & Native multimodal architectures.\nb) Efficient VLM training/inference.\nc) Multi Agents / OpenClaw.\nd) Safety alignment & Model interpretability."
   },
 
   // ==================================================
@@ -67,7 +97,7 @@
       "max_score_per_keyword": 10
     },
     "author_bonus": {
-      "enabled": false,
+      "enabled": true,
       "expert_authors": [],
       "bonus_points": 5.0
     },
@@ -129,7 +159,7 @@
     "top_n": 5,
     "channels": {
       "email": {
-        "enabled": false
+        "enabled": true
       },
       "wechat_work": {
         "enabled": true
@@ -144,7 +174,7 @@
         "enabled": false
       },
       "generic_webhook": {
-        "enabled": false
+        "enabled": true
       }
     }
   },

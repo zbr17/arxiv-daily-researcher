@@ -14,7 +14,7 @@ on:
       search_days:
         description: '搜索最近 N 天的论文 (Search recent N days)'
         required: false
-        default: '7'
+        default: '1'
 
 jobs:
   research:

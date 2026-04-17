@@ -60,11 +60,17 @@
       "weight": 1.0,
       "keywords": [
         "deep learning theory",
-        "explainable AI",
-        "neural network theory",
-        "agent",
-        "efficiecy",
-        "safety"
+        "mechanistic interpretability",
+        "large language model",
+        "large multi-modal model",
+        "vision-language model",
+        "embodied intelligence",
+        "LLMs on edge",
+        "deployment of LLMs",
+        "efficiency computation of LLMs",
+        "AI agent",
+        "agent harness",
+        "AI safety"
       ]
     },
     "enable_reference_extraction": true,
@@ -156,7 +162,7 @@
     "on_success": true,
     "on_failure": true,
     "attach_reports": false,
-    "top_n": 5,
+    "top_n": 10,
     "channels": {
       "email": {
         "enabled": true

@@ -45,10 +45,8 @@
       "cs.CL",
       "cs.CV",
       "cs.LG",
-      "cs.NE",
-      "cs.RO",
       "cs.SE",
-      "cs.DS"
+      "stat.ML"
     ]
   },
 
@@ -73,7 +71,7 @@
         "AI safety"
       ]
     },
-    "enable_reference_extraction": true,
+    "enable_reference_extraction": false,
     "reference_keywords_config": {
       "max_keywords": 10,
       "similarity_threshold": 0.75,
@@ -104,12 +102,15 @@
     },
     "author_bonus": {
       "enabled": true,
-      "expert_authors": [],
+      "expert_authors": [
+        "Kaiming He",
+        "Jie Tang"
+      ],
       "bonus_points": 5.0
     },
     "passing_score_formula": {
       "base_score": 5.0,
-      "weight_coefficient": 3.0
+      "weight_coefficient": 2.0
     },
     "include_all_in_report": true
   },
@@ -161,14 +162,14 @@
     "enabled": true,
     "on_success": true,
     "on_failure": true,
-    "attach_reports": false,
+    "attach_reports": true,
     "top_n": 10,
     "channels": {
       "email": {
         "enabled": true
       },
       "wechat_work": {
-        "enabled": true
+        "enabled": false
       },
       "dingtalk": {
         "enabled": false
@@ -180,7 +181,7 @@
         "enabled": false
       },
       "generic_webhook": {
-        "enabled": true
+        "enabled": false
       }
     }
   },
@@ -207,7 +208,7 @@
   // ==================================================
   "concurrency": {
     "enabled": true,
-    "workers": 2
+    "workers": 5
   },
 
   // ==================================================

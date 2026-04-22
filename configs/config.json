@@ -3,7 +3,7 @@
   // Search Configuration
   // ==================================================
   "search_settings": {
-    "search_days": 3,
+    "search_days": 2,
     "max_results": 1000,
     "max_results_per_source": {}
   },
@@ -257,6 +257,11 @@
       "html"
     ],
     "enabled_skills": [
+      "temporal_evolution",
+      "hot_topics",
+      "key_authors",
+      "research_gaps",
+      "methodology_trends",
       "comprehensive_analysis"
     ]
   }

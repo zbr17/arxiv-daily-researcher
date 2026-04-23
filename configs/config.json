@@ -14,23 +14,11 @@
   "data_sources": {
     "enabled": [
       "arxiv",
-      "prl",
-      "pra",
-      "prb",
-      "prc",
-      "prd",
-      "pre",
-      "prx",
-      "prxq",
-      "rmp",
       "nature",
       "nature_physics",
       "nature_communications",
       "science",
-      "science_advances",
-      "npj_quantum_information",
-      "quantum",
-      "new_journal_of_physics"
+      "science_advances"
     ],
     "journals": [],
     "reports_by_source": true

@@ -327,6 +327,22 @@ docker compose -f docker/docker-compose.yml --profile webui up -d config-panel
 > [!NOTE]
 > WebUI 容器使用独立的 `profiles: [webui]`，不影响主研究容器。只有显式指定 `--profile webui` 时才会启动，两者相互独立。
 
+### 🪶 简洁版 WebUI（日志 + HTML 查看）
+
+为降低浏览器内存占用，新增了独立轻量页面：仅查看日志和 HTML，不包含任何配置编辑项。
+
+```bash
+# Docker 启动简洁版 WebUI（端口 8502）
+docker compose -f docker/docker-compose.yml --profile webui up -d simple-viewer
+# 浏览器访问 http://localhost:8502
+```
+
+页面能力：
+- 按日期查看日志文件
+- 展示 ArXiv 过滤前/后统计曲线（`raw_total` / `date_filtered` / `kept`）
+- 查看被日期过滤论文详情（来自日志中的 `FilteredByDate`）
+- 按日期查看 HTML 文件，默认源码预览（低内存），可手动切换渲染预览
+
 
 
 <details>
@@ -385,6 +401,11 @@ docker compose -f docker/docker-compose.yml build && docker compose -f docker/do
 
 # 启动 / 停止配置面板（Web UI）
 docker compose -f docker/docker-compose.yml --profile webui up -d config-panel
+
+# 启动简洁版查看器（日志 + HTML，8502 端口）
+docker compose -f docker/docker-compose.yml --profile webui up -d simple-viewer
+
+# 停止 profile=webui 下所有 WebUI 容器
 docker compose -f docker/docker-compose.yml --profile webui down
 ```
 </details>

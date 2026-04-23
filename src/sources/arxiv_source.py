@@ -8,6 +8,7 @@ ArXiv 论文数据源
 """
 
 import arxiv
+import json
 import logging
 import time
 from datetime import datetime, date, timedelta, timezone
@@ -64,6 +65,11 @@ class ArxivSource(BasePaperSource):
 
         all_papers = {}
         cutoff_date = datetime.now(timezone.utc) - timedelta(days=days)
+        total_raw = 0
+        total_processed_skipped = 0
+        total_duplicate_skipped = 0
+        total_date_filtered = 0
+        total_kept = 0
 
         logger.info(f"[ArXiv] 开始抓取论文")
         logger.info(f"  目标领域: {domains}")
@@ -85,19 +91,35 @@ class ArxivSource(BasePaperSource):
             while retry_count <= max_retries:
                 try:
                     count = 0
+                    domain_raw = 0
+                    domain_processed_skipped = 0
+                    domain_duplicate_skipped = 0
+                    domain_date_filtered = 0
+                    date_filtered_details = []
                     for result in self.client.results(search):
+                        domain_raw += 1
                         paper_id = result.get_short_id()
 
                         # 去重：跳过已处理的论文
                         if self.is_processed(paper_id):
+                            domain_processed_skipped += 1
                             continue
 
                         # 去重：跳过本次已抓取的论文
                         if paper_id in all_papers:
+                            domain_duplicate_skipped += 1
                             continue
 
                         # 时间过滤
                         if result.published < cutoff_date:
+                            domain_date_filtered += 1
+                            date_filtered_details.append(
+                                {
+                                    "paper_id": paper_id,
+                                    "published": result.published.isoformat(),
+                                    "title": result.title.strip(),
+                                }
+                            )
                             continue
 
                         # 转换为统一格式
@@ -115,6 +137,33 @@ class ArxivSource(BasePaperSource):
                         )
                         all_papers[paper_id] = metadata
                         count += 1
+
+                    total_raw += domain_raw
+                    total_processed_skipped += domain_processed_skipped
+                    total_duplicate_skipped += domain_duplicate_skipped
+                    total_date_filtered += domain_date_filtered
+                    total_kept += count
+
+                    domain_stats = {
+                        "domain": domain,
+                        "cutoff_utc": cutoff_date.isoformat(),
+                        "raw_total": domain_raw,
+                        "processed_skipped": domain_processed_skipped,
+                        "duplicate_skipped": domain_duplicate_skipped,
+                        "date_filtered": domain_date_filtered,
+                        "kept": count,
+                    }
+                    logger.info(
+                        f"[ArXiv][DomainStats] {json.dumps(domain_stats, ensure_ascii=False)}"
+                    )
+                    if date_filtered_details:
+                        logger.info(
+                            f"[ArXiv][FilteredByDate] {domain} 共 {len(date_filtered_details)} 篇，详情如下"
+                        )
+                        for item in date_filtered_details:
+                            logger.info(
+                                f"[ArXiv][FilteredByDate] {json.dumps(item, ensure_ascii=False)}"
+                            )
 
                     logger.info(f"    领域 {domain}: 发现 {count} 篇新论文")
                     break  # 成功则退出重试循环
@@ -135,6 +184,15 @@ class ArxivSource(BasePaperSource):
                         break
 
         papers = list(all_papers.values())
+        overall_stats = {
+            "cutoff_utc": cutoff_date.isoformat(),
+            "raw_total": total_raw,
+            "processed_skipped": total_processed_skipped,
+            "duplicate_skipped": total_duplicate_skipped,
+            "date_filtered": total_date_filtered,
+            "kept": total_kept,
+        }
+        logger.info(f"[ArXiv][OverallStats] {json.dumps(overall_stats, ensure_ascii=False)}")
         logger.info(f"[ArXiv] 总计发现 {len(papers)} 篇新论文")
         return papers
 
